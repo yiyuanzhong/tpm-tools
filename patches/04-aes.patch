@@ -1,0 +1,22 @@
+--- a/libtpm/lib/tpmutil.c
++++ b/libtpm/lib/tpmutil.c
+@@ -1397,7 +1397,7 @@
+ TPM_RESULT TPM_AES_ctr128_Encrypt(unsigned char *data_out,
+ 				  const unsigned char *data_in,
+ 				  unsigned long data_size,
+-				  const AES_KEY *aes_enc_key,
++				  AES_KEY *aes_enc_key,
+ 				  unsigned char ctr[TPM_AES_BLOCK_SIZE])
+ {
+     TPM_RESULT 	rc = 0;
+--- a/libtpm/lib/tpmutil.h
++++ b/libtpm/lib/tpmutil.h
+@@ -123,7 +123,7 @@
+ TPM_RESULT TPM_AES_ctr128_Encrypt(unsigned char *data_out,
+ 				  const unsigned char *data_in,
+ 				  unsigned long data_size,
+-				  const AES_KEY *aes_enc_key,
++				  AES_KEY *aes_enc_key,
+ 				  unsigned char ctr[TPM_AES_BLOCK_SIZE]);
+ TPM_RESULT TSS_MGF1(unsigned char       *mask,
+                     uint32_t             maskLen,

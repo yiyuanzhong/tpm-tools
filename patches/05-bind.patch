@@ -1,0 +1,64 @@
+--- a/libtpm/lib/bind.c
++++ b/libtpm/lib/bind.c
+@@ -55,6 +55,7 @@
+ #include <hmac.h>
+ #include <openssl/rsa.h>
+ #include <openssl/err.h>
++#include <openssl/evp.h>
+ 
+    
+ /****************************************************************************/
+@@ -203,32 +204,36 @@
+                   const struct tpm_buffer *data,
+                   struct tpm_buffer *blob)
+ {
+-	uint32_t ret;
+-	unsigned char * blob2 = NULL;
+-	int size = RSA_size(key);
+-	unsigned char tcpa[] = "TCPA";
++	unsigned char tpm_oaep_pad_str[] = "TCPA";
++	EVP_PKEY_CTX *ctx;
++	EVP_PKEY *pkey;
++	size_t outlen;
++	void *tcpa;
++	int ret;
+ 	
+-	blob2 = malloc(size);
+-	if (NULL == blob2) {
+-		return ERR_MEM_ERR;
+-	}
+ 	/* check input arguments */
+ 	if (key == NULL || data == NULL || blob == NULL) 
+ 		return ERR_NULL_ARG;
+ 
+-	ret = RSA_padding_add_PKCS1_OAEP(blob2,size,data->buffer,data->used,tcpa,4);
++	pkey = EVP_PKEY_new();
++	EVP_PKEY_set1_RSA(pkey, key);
++	ctx = EVP_PKEY_CTX_new_from_pkey(NULL,pkey,NULL);
++	EVP_PKEY_encrypt_init(ctx);
++	EVP_PKEY_CTX_set_rsa_padding(ctx,RSA_PKCS1_OAEP_PADDING);
++	tcpa = malloc(4);
++	memcpy(tcpa,tpm_oaep_pad_str,4);
++	EVP_PKEY_CTX_set0_rsa_oaep_label(ctx,tcpa,4);
++
++	outlen = RSA_size(key);
++	ret = EVP_PKEY_encrypt(ctx,blob->buffer,&outlen,data->buffer,data->used);
+ 	if (ret != 1) {
+-		 free(blob2);
+ 		 opensslError = ERR_error_string(ERR_get_error(), NULL);
+ 		 return ERR_CRYPT_ERR;
+ 	}
+-	ret = RSA_public_encrypt(size,blob2,blob->buffer,key,RSA_NO_PADDING);
+-	free(blob2);
+-	if ((int)ret == -1) {
+-	    opensslError = ERR_error_string(ERR_get_error(), NULL);
+-	    return ERR_CRYPT_ERR;
+-	}
+-	blob->used = ret;
++
++	EVP_PKEY_CTX_free(ctx);
++	EVP_PKEY_free(pkey);
++	blob->used = outlen;
+ 	return 0;
+ }
+ 

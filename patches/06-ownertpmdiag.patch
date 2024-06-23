@@ -1,0 +1,68 @@
+--- a/libtpm/lib/ownertpmdiag.c
++++ b/libtpm/lib/ownertpmdiag.c
+@@ -86,7 +86,10 @@
+    pubkeydata tpmpubkey;                            /* public endorsement key data */
+    uint32_t srkparamsize;                            /* SRK parameter buffer size */
+    RSA *pubkey;                                      /* PubEK converted to OpenSSL format */
+-   unsigned char padded[RSA_MODULUS_BYTE_SIZE];      /* area for OAEP padding */
++   void *tcpa;
++   size_t outlen;
++   EVP_PKEY *pkey;
++   EVP_PKEY_CTX *ctx;
+    keydata srk;                                      /* key info for SRK */
+    unsigned char dummypass[TPM_HASH_SIZE];          /* dummy srk password */
+    unsigned char *spass;                             /* pointer to srkpass or dummy */
+@@ -126,32 +129,35 @@
+    if (pubkey == NULL) return ERR_CRYPT_ERR;
+    memset(ownerencr,0,sizeof ownerencr);
+    memset(srkencr,0,sizeof srkencr);
++
++   pkey = EVP_PKEY_new();
++   EVP_PKEY_set1_RSA(pkey, pubkey);
++   ctx = EVP_PKEY_CTX_new_from_pkey(NULL,pkey,NULL);
++   EVP_PKEY_encrypt_init(ctx);
++   EVP_PKEY_CTX_set_rsa_padding(ctx,RSA_PKCS1_OAEP_PADDING);
++   tcpa = malloc(4);
++   memcpy(tcpa,tpm_oaep_pad_str,4);
++   EVP_PKEY_CTX_set0_rsa_oaep_label(ctx,tcpa,4);
++
+    /* Pad and then encrypt the owner data using the RSA public key */
+-   iret = RSA_padding_add_PKCS1_OAEP(padded,RSA_MODULUS_BYTE_SIZE,
+-                                    ownpass,TPM_HASH_SIZE,tpm_oaep_pad_str,sizeof tpm_oaep_pad_str);
+-   if (iret == 0) {
++   outlen = RSA_MODULUS_BYTE_SIZE;
++   iret = EVP_PKEY_encrypt(ctx,ownerencr,&outlen,ownpass,TPM_HASH_SIZE);
++   if (iret != 1) {
+        opensslError = ERR_error_string(ERR_get_error(), NULL);
+        return ERR_CRYPT_ERR;
+    }
+-   iret = RSA_public_encrypt(RSA_MODULUS_BYTE_SIZE,padded,ownerencr,pubkey,RSA_NO_PADDING);
+-   if (iret < 0) {
+-       opensslError = ERR_error_string(ERR_get_error(), NULL);
+-       return ERR_CRYPT_ERR;
+-   }
+-   oencdatasize = htonl(iret);
++   oencdatasize = htonl(outlen);
++
+    /* Pad and then encrypt the SRK data using the RSA public key */
+-   iret = RSA_padding_add_PKCS1_OAEP(padded,RSA_MODULUS_BYTE_SIZE,
+-                                    spass,TPM_HASH_SIZE,tpm_oaep_pad_str,sizeof tpm_oaep_pad_str);
+-   if (iret == 0) {
++   outlen = RSA_MODULUS_BYTE_SIZE;
++   iret = EVP_PKEY_encrypt(ctx,srkencr,&outlen,spass,TPM_HASH_SIZE);
++   if (iret != 1) {
+        opensslError = ERR_error_string(ERR_get_error(), NULL);
+        return ERR_CRYPT_ERR;
+    }
+-   iret = RSA_public_encrypt(RSA_MODULUS_BYTE_SIZE,padded,srkencr,pubkey,RSA_NO_PADDING);
+-   if (iret < 0) {
+-       opensslError = ERR_error_string(ERR_get_error(), NULL);
+-       return ERR_CRYPT_ERR;
+-   }
+-   sencdatasize = htonl(iret);
++   sencdatasize = htonl(outlen);
++   EVP_PKEY_CTX_free(ctx);
++   EVP_PKEY_free(pkey);
+    RSA_free(pubkey);
+    if ((int)ntohl(oencdatasize) < 0) {
+        opensslError = ERR_error_string(ERR_get_error(), NULL);

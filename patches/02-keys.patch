@@ -1,0 +1,12 @@
+--- a/libtpm/lib/keys.c
++++ b/libtpm/lib/keys.c
+@@ -1316,8 +1316,7 @@
+                 exp);
+    }
+    /* set up the RSA public key structure */
+-   rsa->n = mod;
+-   rsa->e = exp;
++   RSA_set0_key(rsa, mod, exp, NULL);
+    return rsa;
+    }
+ 
