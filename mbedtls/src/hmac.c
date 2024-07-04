@@ -2,7 +2,17 @@
 
 #include <stdlib.h>
 
+#include <mbedtls/version.h>
+
 #include <openssl/err.h>
+
+#if MBEDTLS_VERSION_MAJOR < 3
+static const mbedtls_md_info_t *mbedtls_md_info_from_ctx(
+        const mbedtls_md_context_t *ctx)
+{
+    return ctx->md_info;
+}
+#endif
 
 HMAC_CTX *HMAC_CTX_new(void)
 {
@@ -57,7 +67,7 @@ int HMAC_Final(HMAC_CTX *ctx, unsigned char *md, unsigned int *len)
     }
 
     if (len) {
-        *len = mbedtls_md_get_size(ctx->private_md_info);
+        *len = mbedtls_md_get_size(mbedtls_md_info_from_ctx(ctx));
     }
 
     return 1;

@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include <mbedtls/rsa.h>
+#include <mbedtls/version.h>
 
 #include <openssl/err.h>
 
@@ -21,7 +22,12 @@ RSA *RSA_new(void)
         return NULL;
     }
 
+#if MBEDTLS_VERSION_MAJOR >= 3
     mbedtls_rsa_init(rsa);
+#else
+    mbedtls_rsa_init(rsa, MBEDTLS_RSA_PKCS_V15, MBEDTLS_MD_NONE);
+#endif
+
     return rsa;
 }
 

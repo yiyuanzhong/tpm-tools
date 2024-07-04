@@ -4,10 +4,24 @@
 #include <string.h>
 
 #include <mbedtls/md.h>
+#include <mbedtls/version.h>
 
 #include <openssl/err.h>
 #include <openssl/rand.h>
 #include <openssl/rsa.h>
+
+#if MBEDTLS_VERSION_MAJOR < 3
+static const mbedtls_md_info_t *mbedtls_md_info_from_ctx(
+        const mbedtls_md_context_t *ctx)
+{
+    return ctx->md_info;
+}
+
+static int mbedtls_rsa_get_padding_mode(const mbedtls_rsa_context *ctx)
+{
+    return ctx->padding;
+}
+#endif
 
 struct evp_pkey_ctx_st {
     mbedtls_rsa_context *rsa;
@@ -77,7 +91,7 @@ int EVP_DigestFinal_ex(
     }
 
     if (s) {
-        *s = mbedtls_md_get_size(ctx->private_md_info);
+        *s = mbedtls_md_get_size(mbedtls_md_info_from_ctx(ctx));
     }
 
     return 1;
@@ -157,6 +171,9 @@ int EVP_PKEY_encrypt(
 
         if (mbedtls_error(mbedtls_rsa_rsaes_oaep_encrypt(
                 ctx->rsa, mbedtls_rand, NULL,
+#if MBEDTLS_VERSION_MAJOR < 3
+                MBEDTLS_RSA_PUBLIC,
+#endif
                 ctx->oaep_label, ctx->oaep_label_length,
                 inlen, in, out))) {
 
@@ -263,9 +280,13 @@ int EVP_PKEY_CTX_set_rsa_padding(EVP_PKEY_CTX *ctx, int pad)
         return 0;
     }
 
+#if MBEDTLS_VERSION_MAJOR < 3
+    mbedtls_rsa_set_padding(ctx->rsa, padding, hash);
+#else
     if (mbedtls_error(mbedtls_rsa_set_padding(ctx->rsa, padding, hash))) {
         return 0;
     }
+#endif
 
     return 1;
 }

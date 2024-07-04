@@ -1,6 +1,14 @@
 #include <openssl/sha.h>
 
+#include <mbedtls/version.h>
+
 #include <openssl/err.h>
+
+#if MBEDTLS_VERSION_MAJOR < 3
+#define mbedtls_sha1_starts mbedtls_sha1_starts_ret
+#define mbedtls_sha1_update mbedtls_sha1_update_ret
+#define mbedtls_sha1_finish mbedtls_sha1_finish_ret
+#endif
 
 int SHA1_Init(SHA_CTX *c)
 {
