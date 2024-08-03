@@ -1,0 +1,20 @@
+--- a/libtpm/lib/newserialize.h
++++ b/libtpm/lib/newserialize.h
+@@ -501,14 +501,15 @@
+   PARAMS_TPM_QUOTE_INFO2(&,x)
+ 
+ 
+-#define FORMAT_TPM_CAP_VERSION_INFO "S" FORMAT_TPM_VERSION "So%S"
++#define FORMAT_TPM_CAP_VERSION_INFO "S" FORMAT_TPM_VERSION "So%&"
+ #define PARAMS_TPM_CAP_VERSION_INFO(pre,x) \
+   pre(x)->tag,\
+   PARAMS_TPM_VERSION(pre,&(x)->version),\
+   pre(x)->specLevel,\
+   pre(x)->errataRev,\
+   4, pre(x)->tpmVendorID,\
+-  pre(x)->vendorSpecificSize
++  pre(x)->vendorSpecificSize, \
++  pre(x)->vendorSpecific
+ #define PARAMS_TPM_CAP_VERSION_INFO_W(x)\
+   PARAMS_TPM_CAP_VERSION_INFO(,x)
+ #define PARAMS_TPM_CAP_VERSION_INFO_R(x)\
