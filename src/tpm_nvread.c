@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <errno.h>
 #include <getopt.h>
 
 #include <tpmfunc.h>
@@ -48,27 +49,32 @@ int tpm_nvread(int argc, char *argv[])
 
     char *end;
     long size = -1;
-    long index = -1;
     long offset = 0;
+    int has_index = 0;
     int ownerpass = 0;
     char *filename = NULL;
+    unsigned long index = 0;
     while ((c = getopt(argc, argv, "i:s:n:f:o:z")) != -1) {
         switch (c) {
         case 'i':
-            index = strtol(optarg, &end, 0);
-            if (index < 0 || index > UINT32_MAX || *end) {
+            errno = 0;
+            has_index = 1;
+            index = strtoul(optarg, &end, 0);
+            if (index > UINT32_MAX || *end || errno) {
                 return help(argv[0]);
             }
             break;
         case 's':
+            errno = 0;
             size = strtol(optarg, &end, 0);
-            if (size < 0 || size > UINT32_MAX || *end) {
+            if (size < 0 || size > INT32_MAX || *end || errno) {
                 return help(argv[0]);
             }
             break;
         case 'n':
+            errno = 0;
             offset = strtol(optarg, &end, 0);
-            if (offset < 0 || offset > UINT32_MAX || *end) {
+            if (offset < 0 || offset > INT32_MAX || *end || errno) {
                 return help(argv[0]);
             }
             break;
@@ -90,14 +96,14 @@ int tpm_nvread(int argc, char *argv[])
 
     if (optind != argc) {
         return help(argv[0]);
-    } else if (index < 0) {
+    } else if (!has_index) {
         return help(argv[0]);
     }
 
     TPM_setlog(0);
 
     if (size < 0) {
-        size = tpm_get_nv_size(index);
+        size = tpm_get_nv_size((uint32_t)index);
         if (size < 0) {
             return EXIT_FAILURE;
         }

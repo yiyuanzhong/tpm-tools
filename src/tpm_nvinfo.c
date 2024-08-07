@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <errno.h>
 #include <getopt.h>
 
 #include <tpmfunc.h>
@@ -92,20 +93,22 @@ int tpm_nvinfo(int argc, char *argv[])
     int c;
 
     char *end;
-    long index = -1;
     int parsable = 0;
     int list_only = 0;
+    int has_index = 0;
+    unsigned long index = 0;
     while ((c = getopt(argc, argv, "i:np")) != -1) {
         switch (c) {
         case 'i':
-            index = strtol(optarg, &end, 0);
-            if (index < 0 || index > UINT32_MAX || *end) {
+            errno = 0;
+            list_only = 0;
+            has_index = 1;
+            index = strtoul(optarg, &end, 0);
+            if (index > UINT32_MAX || *end || errno) {
                 return help(argv[0]);
             }
-            list_only = 0;
             break;
         case 'n':
-            index = UINT32_MAX;
             list_only = 1;
             break;
         case 'p':
@@ -127,7 +130,7 @@ int tpm_nvinfo(int argc, char *argv[])
 
     TPM_setlog(0);
 
-    if (index >= 0) {
+    if (has_index) {
         return tpm_nvinfo_detail((uint32_t)index) ? EXIT_FAILURE : EXIT_SUCCESS;
     }
 

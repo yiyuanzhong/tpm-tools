@@ -54,13 +54,16 @@ int tpm_extendpcr(int argc, char *argv[])
     int c;
 
     char *end;
-    long index = -1;
+    int has_index = 0;
     char *filename = NULL;
+    unsigned long index = 0;
     while ((c = getopt(argc, argv, "p:i:")) != -1) {
         switch (c) {
         case 'p':
-            index = strtol(optarg, &end, 0);
-            if (index < 0 || index > UINT32_MAX || *end) {
+            errno = 0;
+            has_index = 1;
+            index = strtoul(optarg, &end, 0);
+            if (index > UINT32_MAX || *end || errno) {
                 return help(argv[0]);
             }
             break;
@@ -74,7 +77,7 @@ int tpm_extendpcr(int argc, char *argv[])
 
     if (optind != argc) {
         return help(argv[0]);
-    } else if (index < 0 || !filename) {
+    } else if (!has_index || !filename) {
         return help(argv[0]);
     }
 

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <errno.h>
 #include <getopt.h>
 
 #include <pcrs.h>
@@ -20,13 +21,16 @@ int tpm_nvrelease(int argc, char *argv[])
     int c;
 
     char *end;
-    long index = -1;
     int ownerpass = 0;
+    int has_index = 0;
+    unsigned long index = 0;
     while ((c = getopt(argc, argv, "i:o:y")) != -1) {
         switch (c) {
         case 'i':
-            index = strtol(optarg, &end, 0);
-            if (index < 0 || index > UINT32_MAX || *end) {
+            errno = 0;
+            has_index = 1;
+            index = strtoul(optarg, &end, 0);
+            if (index > UINT32_MAX || *end || errno) {
                 return help(argv[0]);
             }
             break;
@@ -45,7 +49,7 @@ int tpm_nvrelease(int argc, char *argv[])
 
     if (optind != argc) {
         return help(argv[0]);
-    } else if (index < 0) {
+    } else if (!has_index) {
         return help(argv[0]);
     }
 

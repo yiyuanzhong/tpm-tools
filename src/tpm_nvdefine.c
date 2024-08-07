@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <errno.h>
 #include <getopt.h>
 
 #include <pcrs.h>
@@ -118,24 +119,28 @@ int tpm_nvdefine(int argc, char *argv[])
     long pcr;
     char *end;
     long size = -1;
-    long index = -1;
+    int has_index = 0;
     int ownerpass = 0;
     uint32_t rset = 0;
     uint32_t wset = 0;
+    unsigned long index = 0;
     uint32_t permissions = 0;
     unsigned char ownerhash[TPM_HASH_SIZE];
 
     while ((c = getopt(argc, argv, "i:r:w:s:p:o:y")) != -1) {
         switch (c) {
         case 'i':
-            index = strtol(optarg, &end, 0);
-            if (index < 0 || index > UINT32_MAX || *end) {
+            errno = 0;
+            has_index = 1;
+            index = strtoul(optarg, &end, 0);
+            if (index > UINT32_MAX || *end || errno) {
                 return help(argv[0]);
             }
             break;
         case 's':
+            errno = 0;
             size = strtol(optarg, &end, 0);
-            if (size < 0 || size > UINT32_MAX || *end) {
+            if (size < 0 || size > INT32_MAX || *end || errno) {
                 return help(argv[0]);
             }
             break;
@@ -173,7 +178,7 @@ int tpm_nvdefine(int argc, char *argv[])
 
     if (optind != argc) {
         return help(argv[0]);
-    } else if (index < 0 || size <= 0) {
+    } else if (!has_index || size <= 0) {
         return help(argv[0]);
     }
 
