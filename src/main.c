@@ -18,6 +18,7 @@
     f(nvrelease)       \
     f(nvwrite)         \
     f(setclearable)    \
+    f(setpresence)     \
     f(takeownership)   \
     f(version)
 

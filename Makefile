@@ -41,7 +41,7 @@ endif
 SRC := main.c tpm_changeownerauth.c tpm_clear.c tpm_extendpcr.c      \
        tpm_getpubek.c tpm_listkeys.c tpm_nvdefine.c tpm_nvinfo.c     \
        tpm_nvread.c tpm_nvrelease.c tpm_nvwrite.c tpm_setclearable.c \
-       tpm_takeownership.c tpm_version.c
+       tpm_setpresence.c tpm_takeownership.c tpm_version.c
 OBJ := $(foreach i,$(SRC),src/$(i).o)
 
 LIBTPM_SRC := auditing.c bind.c chgauth.c delegation.c eviction.c \
