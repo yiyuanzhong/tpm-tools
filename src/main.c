@@ -30,40 +30,48 @@ struct command {
     int (*function)(int, char **);
 };
 
-#define COMMAND(x) {"tpm_"#x,tpm_##x},
+#define COMMAND(x) {#x,tpm_##x},
 static const struct command kCommands[] = {
     HANDLER(COMMAND)
 };
 
-int main(int argc, char *argv[])
+static int help(char *argv0)
+{
+    size_t i;
+
+    fprintf(stderr, "To run an applet:\n");
+    fprintf(stderr, "%s <applet> (for example \"tpm version\")\n", argv0);
+    fprintf(stderr, "\n");
+    fprintf(stderr, "To create symlinks:\n");
+    fprintf(stderr, "%s --install\n", argv0);
+    fprintf(stderr, "\n");
+    fprintf(stderr, "Supported commands:\n");
+    for (i = 0; i < sizeof(kCommands) / sizeof(*kCommands); ++i) {
+        fprintf(stderr, "  tpm_%s\n", kCommands[i].name);
+    }
+
+    return EXIT_FAILURE;
+}
+
+static int install(int argc, char *argv[], char *bn)
 {
     char target[PATH_MAX];
-    char bnbuf[PATH_MAX];
     char dnbuf[PATH_MAX];
     size_t length;
     size_t dnlen;
     size_t i;
-    char *bn;
     char *dn;
+    int ret;
 
-    if (argc < 1 || strlen(argv[0]) >= PATH_MAX) {
-        return EXIT_FAILURE;
-    }
-
-    strcpy(bnbuf, argv[0]);
-    bn = basename(bnbuf);
-
-    for (i = 0; i < sizeof(kCommands) / sizeof(*kCommands); ++i) {
-        if (strcmp(bn, kCommands[i].name) == 0) {
-            return kCommands[i].function(argc, argv);
-        }
+    if (argc != 2) {
+        return help(bn);
     }
 
     strcpy(dnbuf, argv[0]);
     dn = dirname(dnbuf);
     dnlen = strlen(dn);
 
-    if (!dnlen || dnlen + 1 >= sizeof(target)) {
+    if (!dnlen || dnlen + 5 >= sizeof(target)) {
         return EXIT_FAILURE;
     }
 
@@ -72,28 +80,87 @@ int main(int argc, char *argv[])
         target[dnlen++] = '/';
     }
 
-    if (argc == 2 && strcmp(argv[1], "--install") == 0) {
-        for (i = 0; i < sizeof(kCommands) / sizeof(*kCommands); ++i) {
-            length = strlen(kCommands[i].name);
-            if (dnlen + length >= sizeof(target)) {
-                continue;
-            }
+    memcpy(target + dnlen, "tpm_", 4);
+    dnlen += 4;
 
-            memcpy(target + dnlen, kCommands[i].name, length);
-            target[dnlen + length] = '\0';
-            symlink(bn, target);
+    ret = EXIT_SUCCESS;
+    for (i = 0; i < sizeof(kCommands) / sizeof(*kCommands); ++i) {
+        length = strlen(kCommands[i].name);
+        if (dnlen + length >= sizeof(target)) {
+            ret = EXIT_FAILURE;
+            continue;
         }
 
-        return EXIT_SUCCESS;
+        memcpy(target + dnlen, kCommands[i].name, length);
+        target[dnlen + length] = '\0';
+        if (symlink(bn, target)) {
+            ret = EXIT_FAILURE;
+        }
     }
 
-    fprintf(stderr, "To create symlinks:\n");
-    fprintf(stderr, "%s --install\n", argv[0]);
-    fprintf(stderr, "\n");
-    fprintf(stderr, "Supported commands:\n");
+    return ret;
+}
+
+static int invoke_applet(int argc, char *argv[], char *bn)
+{
+    size_t i;
+
     for (i = 0; i < sizeof(kCommands) / sizeof(*kCommands); ++i) {
-        fprintf(stderr, "  %s\n", kCommands[i].name);
+        if (strcmp(bn + 4, kCommands[i].name) == 0) {
+            argv[0] = bn;
+            return kCommands[i].function(argc, argv);
+        }
     }
 
-    return EXIT_FAILURE;
+    return help(bn);
+}
+
+static int run_applet(int argc, char *argv[], char *bn)
+{
+    char fullbuf[PATH_MAX];
+    size_t length;
+    size_t i;
+
+    length = strlen(argv[1]);
+    if (length + 5 > sizeof(fullbuf)) {
+        return EXIT_FAILURE;
+    }
+
+    memcpy(fullbuf, "tpm_", 4);
+    memcpy(fullbuf + 4, argv[1], length + 1);
+    for (i = 0; i < sizeof(kCommands) / sizeof(*kCommands); ++i) {
+        if (strcmp(argv[1], kCommands[i].name) == 0) {
+            argv[1] = fullbuf;
+            return kCommands[i].function(argc - 1, argv + 1);
+        }
+    }
+
+    return help(bn);
+}
+
+int main(int argc, char *argv[])
+{
+    char bnbuf[PATH_MAX];
+    char *bn;
+
+    if (argc < 1 || !*argv[0] || strlen(argv[0]) >= PATH_MAX) {
+        return EXIT_FAILURE;
+    }
+
+    strcpy(bnbuf, argv[0]);
+    bn = basename(bnbuf);
+
+    if (strncmp(bn, "tpm_", 4) == 0) {
+        return invoke_applet(argc, argv, bn);
+
+    } else if (argc >= 2) {
+        if (strcmp(argv[1], "--install") == 0) {
+            return install(argc, argv, bn);
+        } else {
+            return run_applet(argc, argv, bn);
+        }
+
+    } else {
+        return help(bn);
+    }
 }
