@@ -1,5 +1,6 @@
 #include <openssl/rsa.h>
 
+#include <stdlib.h>
 #include <string.h>
 
 #include <mbedtls/rsa.h>
