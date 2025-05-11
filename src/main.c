@@ -6,6 +6,13 @@
 #include <limits.h>
 #include <unistd.h>
 
+#define PREFIXLEN 4
+#define PREFIX tpm_
+
+#define PREFIXSTR__(x) #x
+#define PREFIXSTR_(x) PREFIXSTR__(x)
+#define PREFIXSTR PREFIXSTR_(PREFIX)
+
 #define HANDLER(f)     \
     f(clear)           \
     f(changeownerauth) \
@@ -22,7 +29,9 @@
     f(takeownership)   \
     f(version)
 
-#define DECLARE(x) extern int tpm_##x(int argc,char *argv[]);
+#define DECLARE__(x,y) extern int x##y(int argc,char *argv[]);
+#define DECLARE_(x,y) DECLARE__(x,y)
+#define DECLARE(x) DECLARE_(PREFIX,x)
 HANDLER(DECLARE)
 
 struct command {
@@ -30,7 +39,9 @@ struct command {
     int (*function)(int, char **);
 };
 
-#define COMMAND(x) {#x,tpm_##x},
+#define COMMAND__(x,y) {#y,x##y},
+#define COMMAND_(x,y) COMMAND__(x,y)
+#define COMMAND(x) COMMAND_(PREFIX, x)
 static const struct command kCommands[] = {
     HANDLER(COMMAND)
 };
@@ -47,7 +58,7 @@ static int help(char *argv0)
     fprintf(stderr, "\n");
     fprintf(stderr, "Supported commands:\n");
     for (i = 0; i < sizeof(kCommands) / sizeof(*kCommands); ++i) {
-        fprintf(stderr, "  tpm_%s\n", kCommands[i].name);
+        fprintf(stderr, "  " PREFIXSTR "%s\n", kCommands[i].name);
     }
 
     return EXIT_FAILURE;
@@ -71,7 +82,7 @@ static int install(int argc, char *argv[], char *bn)
     dn = dirname(dnbuf);
     dnlen = strlen(dn);
 
-    if (!dnlen || dnlen + 5 >= sizeof(target)) {
+    if (!dnlen || dnlen + PREFIXLEN + 1 >= sizeof(target)) {
         return EXIT_FAILURE;
     }
 
@@ -80,8 +91,8 @@ static int install(int argc, char *argv[], char *bn)
         target[dnlen++] = '/';
     }
 
-    memcpy(target + dnlen, "tpm_", 4);
-    dnlen += 4;
+    memcpy(target + dnlen, PREFIXSTR, PREFIXLEN);
+    dnlen += PREFIXLEN;
 
     ret = EXIT_SUCCESS;
     for (i = 0; i < sizeof(kCommands) / sizeof(*kCommands); ++i) {
@@ -106,7 +117,7 @@ static int invoke_applet(int argc, char *argv[], char *bn)
     size_t i;
 
     for (i = 0; i < sizeof(kCommands) / sizeof(*kCommands); ++i) {
-        if (strcmp(bn + 4, kCommands[i].name) == 0) {
+        if (strcmp(bn + PREFIXLEN, kCommands[i].name) == 0) {
             argv[0] = bn;
             return kCommands[i].function(argc, argv);
         }
@@ -122,12 +133,12 @@ static int run_applet(int argc, char *argv[], char *bn)
     size_t i;
 
     length = strlen(argv[1]);
-    if (length + 5 > sizeof(fullbuf)) {
+    if (length + PREFIXLEN + 1 > sizeof(fullbuf)) {
         return EXIT_FAILURE;
     }
 
-    memcpy(fullbuf, "tpm_", 4);
-    memcpy(fullbuf + 4, argv[1], length + 1);
+    memcpy(fullbuf, PREFIXSTR, PREFIXLEN);
+    memcpy(fullbuf + PREFIXLEN, argv[1], length + 1);
     for (i = 0; i < sizeof(kCommands) / sizeof(*kCommands); ++i) {
         if (strcmp(argv[1], kCommands[i].name) == 0) {
             argv[1] = fullbuf;
@@ -150,7 +161,7 @@ int main(int argc, char *argv[])
     strcpy(bnbuf, argv[0]);
     bn = basename(bnbuf);
 
-    if (strncmp(bn, "tpm_", 4) == 0) {
+    if (strncmp(bn, PREFIXSTR, PREFIXLEN) == 0) {
         return invoke_applet(argc, argv, bn);
 
     } else if (argc >= 2) {
